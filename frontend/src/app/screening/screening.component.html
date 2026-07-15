@@ -1,0 +1,135 @@
+<h2>Transaction screening</h2>
+
+<div class="portcall-input">
+  <label for="pcNumber">Enter portcall number (e.g. UY260001)</label>
+  <input
+    id="pcNumber"
+    type="text"
+    [ngModel]="portcallNumberInput()"
+    (ngModelChange)="portcallNumberInput.set($event)"
+    (keyup.enter)="loadPortcall()"
+    placeholder="UY260001"
+  />
+  <button (click)="loadPortcall()" [disabled]="loadingInitial()">
+    {{ activePortcallNumber() ? 'Reload' : 'Load' }}
+  </button>
+</div>
+
+@if (loadError()) {
+  <p class="error-box">{{ loadError() }}</p>
+}
+
+@if (loadingInitial()) {
+  <p>Loading portcall data…</p>
+}
+
+@if (vessel(); as v) {
+  <section>
+    <h3>Select BLs to extract more parties from</h3>
+
+    @if (attachments().length === 0) {
+      <p>No attachments found for this portcall.</p>
+    }
+
+    @for (att of attachments(); track att.name) {
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            [checked]="isAttachmentSelected(att.name)"
+            (change)="toggleAttachment(att.name, $any($event.target).checked)"
+          />
+          {{ att.name }}
+        </label>
+      </div>
+    }
+
+    @if (attachments().length > 0) {
+      <button (click)="extractFromSelectedBLs()" [disabled]="loadingExtract()">
+        Extract parties from selected BL(s)
+      </button>
+    }
+
+    @if (loadingExtract()) {
+      <p>Extracting parties…</p>
+    }
+
+    @for (warning of attachmentWarnings(); track warning.name) {
+      <p class="warning-box">Failed to process {{ warning.name }}: {{ warning.error }}</p>
+    }
+  </section>
+
+  <section>
+    <h3>Review detected parties</h3>
+    @for (entry of allParties() | keyvalue; track entry.key) {
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            [checked]="selectedParties()[entry.key] ?? true"
+            (change)="toggleSelectedParty(entry.key, $any($event.target).checked)"
+          />
+          {{ entry.key }} ({{ entry.value.join(', ') }})
+        </label>
+      </div>
+    }
+  </section>
+
+  <section>
+    <h3>Add additional parties</h3>
+    <input
+      type="text"
+      [ngModel]="newPartyName()"
+      (ngModelChange)="newPartyName.set($event)"
+      (keyup.enter)="addManualParty()"
+      placeholder="Add party name"
+    />
+    <button (click)="addManualParty()">Add party</button>
+  </section>
+
+  <p>You have selected: {{ finalParties().join(', ') }}</p>
+
+  <button (click)="runScreening()" [disabled]="loadingScreening() || finalParties().length === 0">
+    Run screening
+  </button>
+
+  @if (loadingScreening()) {
+    <p>Running screening…</p>
+  }
+
+  @if (screeningResults(); as results) {
+    <section>
+      @for (result of results.partyResults; track result.party) {
+        @if (result.found) {
+          <div class="screening-row" [style.background-color]="screeningColours[result.status]">
+            <span>{{ result.party }} {{ screeningStatuses[result.status] }}</span>
+            <a [href]="result.caseUrl" target="_blank">View case in Pascal</a>
+          </div>
+        } @else {
+          <div class="error-box">
+            <p>{{ result.message }}</p>
+            @if (result.cases) {
+              <ul>
+                @for (c of result.cases; track c.url) {
+                  <li><a [href]="c.url" target="_blank">{{ c.label }}</a></li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      }
+
+      <h3>Vessel data screened with SeaSearcher</h3>
+      <div
+        class="screening-row"
+        [style.background-color]="results.vessel.sanctioned ? screeningColours[2] : screeningColours[0]"
+      >
+        @if (results.vessel.sanctioned) {
+          <span>Vessel '{{ results.vessel.name }}' (IMO: {{ results.vessel.imo }}) is SANCTIONED</span>
+        } @else {
+          <span>Vessel '{{ results.vessel.name }}' (IMO: {{ results.vessel.imo }}) is NOT sanctioned.</span>
+        }
+      </div>
+    </section>
+  }
+}
