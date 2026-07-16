@@ -59,6 +59,6 @@ the UI to load any data.
 
 - **`BL_PATTERN` branch-2 quirk** (`backend/src/portable/bl-reader.interface.ts`) — ported exactly from the Python `re.VERBOSE` pattern, including what looks like an unintentional bug where "bill of lading" only matches with zero separators between words (e.g. matches `BillOfLading.pdf`, not `Bill_of_Lading.pdf`). Flagged in-file; test against your real attachment filenames.
 - **Pascal bank-search response shape** (`getBankName` in `pascal.service.ts`) — the original reads `data` as a single object there but as an array in case search, for what looks like the same endpoint. Kept as-is; unverified against a live response.
-- **PDF/OCR libraries** (`pdf-parse`, `tesseract.js`) are new dependencies not in the original Python stack — verify extraction quality against real BL documents, especially scanned PNGs via OCR.
+- **PDF/OCR libraries** (`pdf-parse`, `pdf-to-png-converter`, `tesseract.js`) are new dependencies not in the original Python stack — verify extraction quality against real BL documents, especially scanned PNGs and text-less (scanned) PDFs via OCR.
 - **CORS is wide open** in `main.ts` (`app.enableCors()`) for local testing — lock this down before any real deployment.
 - **No auth/session layer for the app itself** — none was in the original Streamlit app either, so none has been added here. Add one before exposing this beyond local testing.
