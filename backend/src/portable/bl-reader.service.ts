@@ -1,13 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
+import { pdfToPng } from 'pdf-to-png-converter';
 import { createWorker, OEM, PSM } from 'tesseract.js';
 import { BlReader } from './bl-reader.interface';
 
 const PDF_SIGNATURE = '%PDF';
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+// The section labels findValue() searches for. Also used to recognize when
+// scanning has run into the *next* section's label instead of a value.
+const SECTION_LABELS = ['Shipper', 'Consignor', 'Consignee', 'Notify address', 'Notify'];
+
 /**
- * npm dependencies: pdf-parse, tesseract.js
+ * npm dependencies: pdf-parse, pdf-to-png-converter, tesseract.js
  */
 @Injectable()
 export class BlReaderService implements BlReader {
@@ -32,6 +37,30 @@ export class BlReaderService implements BlReader {
 
   private async extractFromPdf(fileBytes: Buffer): Promise<Record<string, string>> {
     const { text } = await pdfParse(fileBytes);
+    if (text && text.trim()) {
+      return this.extractPartiesFromText(text);
+    }
+
+    this.logger.warn('PDF has no extractable text (likely a scanned BL); falling back to OCR.');
+    return this.extractFromScannedPdf(fileBytes);
+  }
+
+  private async extractFromScannedPdf(fileBytes: Buffer): Promise<Record<string, string>> {
+    const pages = await pdfToPng(fileBytes, { disableFontFace: true });
+    if (!pages.length) {
+      this.logger.warn('Scanned PDF could not be rasterized for OCR.');
+      return {};
+    }
+
+    const images = pages
+      .map((page) => page.content)
+      .filter((content): content is Buffer => content !== undefined);
+    const text = await this.ocrImages(images);
+    return this.extractPartiesFromText(text);
+  }
+
+  private async extractFromPng(fileBytes: Buffer): Promise<Record<string, string>> {
+    const text = await this.ocrImages([fileBytes]);
     return this.extractPartiesFromText(text);
   }
 
@@ -41,14 +70,18 @@ export class BlReaderService implements BlReader {
    * simplicity/correctness — if BL volume is high, consider a shared
    * worker pool instead of creating one per request.
    */
-  private async extractFromPng(fileBytes: Buffer): Promise<Record<string, string>> {
+  private async ocrImages(images: Buffer[]): Promise<string> {
     const worker = await createWorker('eng', OEM.DEFAULT);
     try {
       await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
-      const {
-        data: { text },
-      } = await worker.recognize(fileBytes);
-      return this.extractPartiesFromText(text);
+      const texts: string[] = [];
+      for (const image of images) {
+        const {
+          data: { text },
+        } = await worker.recognize(image);
+        texts.push(text);
+      }
+      return texts.join('\n');
     } finally {
       await worker.terminate();
     }
@@ -68,8 +101,14 @@ export class BlReaderService implements BlReader {
             for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
               const value = lines[j].trim();
               if (!value) continue;
-              // Stop if next section starts
-              if (/^[A-Z][A-Za-z ]+$/.test(value)) continue;
+              // Stop (no value found) if we've run into the next section's
+              // label instead of a value — a party name in plain title case
+              // (e.g. "Acme Shipping Co") must NOT be mistaken for one of
+              // these, so match against the known labels specifically
+              // rather than a generic title-case pattern.
+              if (SECTION_LABELS.some((sectionLabel) => new RegExp(`^${sectionLabel}\\b`, 'i').test(value))) {
+                break;
+              }
               return value;
             }
           }
