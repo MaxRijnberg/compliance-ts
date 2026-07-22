@@ -56,3 +56,14 @@ export interface PascalSanctionsResult {
   status: PascalSanctionsStatus;
   caseUrl: string;
 }
+
+export interface PascalClientCreateResponse {
+  id: number;
+  [key: string]: unknown;
+}
+
+export interface ClientCreationResult {
+  clientId: number;
+  linkedCount: number;
+  failedLinks: string[];
+}

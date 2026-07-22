@@ -1,0 +1,18 @@
+.app-nav {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.app-nav a {
+  text-decoration: none;
+  color: inherit;
+  padding: 0.25rem 0;
+}
+
+.app-nav a.active {
+  font-weight: bold;
+  border-bottom: 2px solid currentColor;
+}

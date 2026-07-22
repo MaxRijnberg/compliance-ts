@@ -1,0 +1,116 @@
+<h2>Pascal Client Creator</h2>
+
+<p>
+  Enter a Portcall number. The application will retrieve all parties from
+  PortAble Agent and create a client in Pascal.
+</p>
+
+<h3>Step 1 - Retrieve Parties</h3>
+
+<div class="portcall-input">
+  <label for="pcNumber">PortCall Number</label>
+  <input
+    id="pcNumber"
+    type="text"
+    [ngModel]="portcallInput()"
+    (ngModelChange)="portcallInput.set($event)"
+    (keyup.enter)="retrieveParties()"
+  />
+  <button (click)="retrieveParties()" [disabled]="loadingParties()">
+    Retrieve Parties
+  </button>
+</div>
+
+@if (partiesError()) {
+  <p class="error-box">{{ partiesError() }}</p>
+}
+
+@if (loadingParties()) {
+  <p>Retrieving parties from PortAble…</p>
+}
+
+@if (partiesLoaded()) {
+  <p class="success-box">Found {{ parties().length }} parties.</p>
+
+  <section>
+    <h3>Step 2 - Review Parties</h3>
+
+    <details open>
+      <summary>View Parties ({{ parties().length }})</summary>
+      <ul>
+        @for (party of parties(); track party) {
+          <li>{{ party }}</li>
+        }
+      </ul>
+    </details>
+
+    <label for="clientName">Client Name</label>
+    <input
+      id="clientName"
+      type="text"
+      [ngModel]="clientNameInput()"
+      (ngModelChange)="clientNameInput.set($event)"
+    />
+  </section>
+
+  <section>
+    <h3>Step 3 - Create Client</h3>
+
+    <button (click)="createClient()" [disabled]="creatingClient()">
+      Create Pascal Client
+    </button>
+
+    @if (creatingClient()) {
+      <p>Creating client in Pascal…</p>
+    }
+
+    @if (clientError()) {
+      <p class="error-box">{{ clientError() }}</p>
+    }
+
+    @if (result(); as r) {
+      @if (failedCount() === 0) {
+        <p class="success-box">Client created successfully (ID {{ r.clientId }})</p>
+      } @else if (r.linkedCount > 0) {
+        <p class="warning-box">
+          Client created (ID {{ r.clientId }}) with {{ failedCount() }} failed link(s).
+        </p>
+      } @else {
+        <p class="error-box">
+          Client created (ID {{ r.clientId }}) but no cases were linked.
+        </p>
+      }
+
+      <div class="metrics-row">
+        <div class="metric">
+          <span class="metric-label">Parties Found</span>
+          <span class="metric-value">{{ parties().length }}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Cases Linked</span>
+          <span class="metric-value">{{ r.linkedCount }}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Failed Links</span>
+          <span class="metric-value">{{ failedCount() }}</span>
+        </div>
+      </div>
+
+      @if (r.failedLinks.length > 0) {
+        <details open>
+          <summary>Failed Links ({{ r.failedLinks.length }})</summary>
+          <ul>
+            @for (failure of r.failedLinks; track failure) {
+              <li>{{ failure }}</li>
+            }
+          </ul>
+        </details>
+      }
+
+      <details>
+        <summary>Execution Summary</summary>
+        <pre>{{ executionSummary() | json }}</pre>
+      </details>
+    }
+  </section>
+}
