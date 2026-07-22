@@ -1,4 +1,9 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { AxiosError } from 'axios';
@@ -8,6 +13,8 @@ import {
   PascalCaseSearchResponse,
   PascalCaseSearchResult,
   PascalBankSearchResponse,
+  PascalClientCreateResponse,
+  ClientCreationResult,
   PascalSanctionsResult,
   PascalSanctionsStatus,
 } from './pascal.types';
@@ -134,6 +141,101 @@ export class PascalService {
     return data.data.name;
   }
 
+  /**
+   * Creates a new Client in Pascal and links all existing cases for the
+   * provided party names.
+   */
+  async createClient(
+    names: string[],
+    clientName?: string,
+    labels: string[] = [],
+  ): Promise<ClientCreationResult> {
+    const resolvedName =
+      clientName ??
+      `Client - ${names.slice(0, 3).join(', ')}${names.length > 3 ? '...' : ''}`;
+
+    this.logger.log(`Creating client: ${resolvedName} for names: ${names.join(', ')}`);
+
+    const createUrl = new URL('/api/v1/clients', this.baseUrl).toString();
+    let clientId: number;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<PascalClientCreateResponse>(
+          createUrl,
+          {
+            name: resolvedName,
+            labels,
+            description: `Automated client created for parties: ${names.join(', ')}`,
+          },
+          { headers: this.headers, timeout: this.timeoutMs },
+        ),
+      );
+
+      if (!response.data.id) {
+        const message = 'Client created but ID missing in response';
+        this.logger.error(message);
+        throw new InternalServerErrorException(message);
+      }
+
+      clientId = response.data.id;
+      this.logger.log(`Successfully created client with ID: ${clientId}`);
+    } catch (error) {
+      if (error instanceof InternalServerErrorException) throw error;
+      const detail = this.describeError(error);
+      this.logger.error(`Failed to create client: ${detail}`);
+      throw new ServiceUnavailableException(`Failed to create client: ${detail}`);
+    }
+
+    let linkedCount = 0;
+    const failedLinks: string[] = [];
+
+    for (const name of names) {
+      const result = await this.getCaseIfExists(name);
+
+      if (!result.found) {
+        this.logger.warn(`Skipping '${name}': ${result.message}`);
+        failedLinks.push(`${name}: ${result.message}`);
+        continue;
+      }
+
+      const caseUuid = result.case.uuid;
+      const patchUrl = new URL(`/api/v1/cases/${caseUuid}`, this.baseUrl).toString();
+
+      try {
+        const patchResponse = await firstValueFrom(
+          this.httpService.patch(
+            patchUrl,
+            { clients: [clientId] },
+            { headers: this.headers, timeout: this.timeoutMs },
+          ),
+        );
+
+        if (patchResponse.status === 200) {
+          this.logger.log(`SUCCESS: Linked case ${caseUuid} to client ${clientId}`);
+          linkedCount++;
+        } else {
+          this.logger.error(
+            `PATCH failed. Status: ${patchResponse.status}. Body: ${JSON.stringify(patchResponse.data)}`,
+          );
+          failedLinks.push(`${name}: Update failed. Status ${patchResponse.status}`);
+        }
+      } catch (error) {
+        this.logger.error(`PATCH exception for ${caseUuid}: ${this.describeError(error)}`);
+        failedLinks.push(`${name}: Exception during update.`);
+      }
+    }
+
+    this.logger.log(
+      `Client creation complete. ID: ${clientId}. Linked ${linkedCount}/${names.length} cases.`,
+    );
+    if (failedLinks.length > 0) {
+      this.logger.warn(`Failed to link cases for: ${failedLinks.join('; ')}`);
+    }
+
+    return { clientId, linkedCount, failedLinks };
+  }
+
   private async postSearch<T>(body: Record<string, unknown>): Promise<{ data: T }> {
     try {
       const response = await firstValueFrom(
@@ -144,16 +246,18 @@ export class PascalService {
       );
       return { data: response.data };
     } catch (error) {
-      const detail =
-        error instanceof AxiosError
-          ? `${error.response?.status ?? ''} ${error.message}`.trim()
-          : error instanceof Error
-            ? error.message
-            : String(error);
+      const detail = this.describeError(error);
       this.logger.error(`Pascal search request failed: ${detail}`);
       throw new ServiceUnavailableException(
         `Pascal search request failed: ${detail}`,
       );
     }
+  }
+
+  private describeError(error: unknown): string {
+    if (error instanceof AxiosError) {
+      return `${error.response?.status ?? ''} ${error.message}`.trim();
+    }
+    return error instanceof Error ? error.message : String(error);
   }
 }

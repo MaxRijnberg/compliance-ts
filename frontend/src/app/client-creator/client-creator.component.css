@@ -1,0 +1,45 @@
+.portcall-input {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+section {
+  margin-bottom: 1.5rem;
+}
+
+.error-box {
+  border: 2px solid #ff0000;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.warning-box {
+  color: #9c6500;
+}
+
+.success-box {
+  color: #09741b;
+}
+
+.metrics-row {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.metric-value {
+  font-size: 1.4rem;
+  font-weight: bold;
+}

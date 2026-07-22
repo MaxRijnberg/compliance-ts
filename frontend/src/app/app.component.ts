@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
-import { ScreeningComponent } from './screening/screening.component';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [ScreeningComponent],
-  template: `<app-screening></app-screening>`,
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.css',
 })
 export class AppComponent {}
