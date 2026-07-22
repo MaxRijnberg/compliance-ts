@@ -206,7 +206,7 @@ export class PascalService {
         const patchResponse = await firstValueFrom(
           this.httpService.patch(
             patchUrl,
-            { clients: [clientId] },
+            { clients: [clientId], monitoring_frequency_sanctions: 1, group_id: 54 },
             { headers: this.headers, timeout: this.timeoutMs },
           ),
         );
