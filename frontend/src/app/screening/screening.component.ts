@@ -3,6 +3,7 @@ import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ScreeningApiService } from './screening-api.service';
 import {
+  ArchiveClientResult,
   RunScreeningResponse,
   SCREENING_COLOURS,
   SCREENING_STATUSES,
@@ -49,6 +50,8 @@ export class ScreeningComponent {
   loadError = signal<string | null>(null);
   attachmentWarnings = signal<AttachmentWarning[]>([]);
   screeningResults = signal<RunScreeningResponse | null>(null);
+  archivingClient = signal(false);
+  archiveResult = signal<ArchiveClientResult | null>(null);
 
   // Mirrors build_all_parties(): merges structured, other, and manual parties.
   allParties = computed<Record<string, string[]>>(() => {
@@ -87,6 +90,7 @@ export class ScreeningComponent {
       this.blProcessed.set(false);
       this.attachmentWarnings.set([]);
       this.screeningResults.set(null);
+      this.archiveResult.set(null);
       this.activePortcallNumber.set(pcId);
     }
 
@@ -205,6 +209,7 @@ export class ScreeningComponent {
 
     this.loadingScreening.set(true);
     this.screeningResults.set(null);
+    this.archiveResult.set(null);
 
     this.api.runScreening(finalParties, vessel.name, vessel.imo).subscribe({
       next: (results) => {
@@ -214,6 +219,25 @@ export class ScreeningComponent {
       error: (err) => {
         this.loadError.set(this.describeHttpError(err));
         this.loadingScreening.set(false);
+      },
+    });
+  }
+
+  archiveClient(): void {
+    const pcId = this.activePortcallNumber();
+    if (!pcId) return;
+
+    this.archivingClient.set(true);
+    this.archiveResult.set(null);
+
+    this.api.archiveClient(pcId).subscribe({
+      next: (result) => {
+        this.archiveResult.set(result);
+        this.archivingClient.set(false);
+      },
+      error: (err) => {
+        this.archiveResult.set({ success: false, message: this.describeHttpError(err) });
+        this.archivingClient.set(false);
       },
     });
   }

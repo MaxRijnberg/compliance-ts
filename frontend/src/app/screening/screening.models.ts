@@ -38,6 +38,11 @@ export interface RunScreeningResponse {
   vessel: ScreeningVesselResult;
 }
 
+export interface ArchiveClientResult {
+  success: boolean;
+  message: string;
+}
+
 // Ported from the Python SCREENING_STATUSES / SCREENING_COLOURS
 export const SCREENING_STATUSES: Record<number, string> = {
   0: '',

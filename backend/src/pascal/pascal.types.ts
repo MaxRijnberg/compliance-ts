@@ -67,3 +67,17 @@ export interface ClientCreationResult {
   linkedCount: number;
   failedLinks: string[];
 }
+
+export interface PascalClientSearchResult {
+  id: number;
+  [key: string]: unknown;
+}
+
+export interface PascalClientSearchResponse {
+  data: PascalClientSearchResult[];
+}
+
+export interface ArchiveClientResult {
+  success: boolean;
+  message: string;
+}
