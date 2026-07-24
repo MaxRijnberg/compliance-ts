@@ -130,6 +130,18 @@
           <span>Vessel '{{ results.vessel.name }}' (IMO: {{ results.vessel.imo }}) is NOT sanctioned.</span>
         }
       </div>
+
+      <button (click)="archiveClient()" [disabled]="archivingClient()">
+        Archive client for portcall {{ activePortcallNumber() }}
+      </button>
+
+      @if (archivingClient()) {
+        <p>Archiving client…</p>
+      }
+
+      @if (archiveResult(); as archive) {
+        <p [class]="archive.success ? 'success-box' : 'error-box'">{{ archive.message }}</p>
+      }
     </section>
   }
 }

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  ArchiveClientResult,
   AttachmentExtractionResult,
   RunScreeningResponse,
   ScreeningInitResponse,
@@ -38,5 +39,12 @@ export class ScreeningApiService {
       vesselName,
       vesselImo,
     });
+  }
+
+  archiveClient(portcallNumber: string): Observable<ArchiveClientResult> {
+    return this.http.post<ArchiveClientResult>(
+      `${this.baseUrl}/portcalls/${encodeURIComponent(portcallNumber)}/archive-client`,
+      {},
+    );
   }
 }

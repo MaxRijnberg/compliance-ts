@@ -17,6 +17,8 @@ import {
   ClientCreationResult,
   PascalSanctionsResult,
   PascalSanctionsStatus,
+  PascalClientSearchResponse,
+  ArchiveClientResult,
 } from './pascal.types';
 
 const NON_VALID_CASE_STATUSES = ['Archived', 'On hold', 'Preview'];
@@ -234,6 +236,67 @@ export class PascalService {
     }
 
     return { clientId, linkedCount, failedLinks };
+  }
+
+  /**
+   * Looks up the Pascal client auto-created for a portcall, matching on the
+   * "Portcall {pcId}" naming convention used by createClient/the client
+   * creator.
+   */
+  async getClientIdByPortcallId(pcId: string): Promise<number | null> {
+    this.logger.log(`Looking for client for portcall ${pcId} in Pascal`);
+
+    const searchUrl = new URL('/api/v1/clients/searches', this.baseUrl).toString();
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<PascalClientSearchResponse>(
+          searchUrl,
+          { name: `Portcall ${pcId}`, per_page: 1, page: 1 },
+          { headers: this.headers, timeout: this.timeoutMs },
+        ),
+      );
+
+      return response.data.data[0]?.id ?? null;
+    } catch (error) {
+      this.logger.error(
+        `Client search failed for portcall ${pcId}: ${this.describeError(error)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Archives the Pascal client for a portcall's client (found via
+   * getClientIdByPortcallId).
+   */
+  async archiveClient(pcId: string): Promise<ArchiveClientResult> {
+    const clientId = await this.getClientIdByPortcallId(pcId);
+
+    if (clientId === null) {
+      return { success: false, message: `There was no client found for ${pcId}` };
+    }
+
+    const statusUrl = new URL(`/api/clients/${clientId}/status`, this.baseUrl).toString();
+
+    try {
+      await firstValueFrom(
+        this.httpService.patch(
+          statusUrl,
+          { status: 'Archived', comment: '', change_case_status: false },
+          { headers: this.headers, timeout: this.timeoutMs },
+        ),
+      );
+    } catch (error) {
+      const detail = this.describeError(error);
+      this.logger.error(`Failed to archive client ${clientId}: ${detail}`);
+      return { success: false, message: `An error occurred: ${detail}` };
+    }
+
+    return {
+      success: true,
+      message: `The client for portcall ${pcId} has been successfully archived!`,
+    };
   }
 
   private async postSearch<T>(body: Record<string, unknown>): Promise<{ data: T }> {

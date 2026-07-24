@@ -4,6 +4,7 @@ import { PascalService } from '../pascal/pascal.service';
 import { SeaSearcherService } from '../seasearcher/seasearcher.service';
 import { BlReaderService } from '../portable/bl-reader.service';
 import { BL_PATTERN } from '../portable/bl-reader.interface';
+import { ArchiveClientResult } from '../pascal/pascal.types';
 import {
   ScreeningAttachmentRefDto,
   ScreeningInitResponseDto,
@@ -110,5 +111,9 @@ export class ScreeningService {
       partyResults,
       vessel: { name: vessel.name, imo: vessel.imo, sanctioned },
     };
+  }
+
+  archiveClient(portcallNumber: string): Promise<ArchiveClientResult> {
+    return this.pascalService.archiveClient(portcallNumber);
   }
 }

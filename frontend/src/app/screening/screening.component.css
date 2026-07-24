@@ -15,6 +15,12 @@ section {
   border-radius: 4px;
 }
 
+.success-box {
+  border: 2px solid #09741b;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
 .warning-box {
   color: #9c6500;
 }

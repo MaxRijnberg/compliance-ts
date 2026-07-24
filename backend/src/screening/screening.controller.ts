@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ScreeningService } from './screening.service';
+import { ArchiveClientResult } from '../pascal/pascal.types';
 import {
   ExtractBlPartiesRequestDto,
   RunScreeningRequestDto,
@@ -32,5 +33,12 @@ export class ScreeningController {
       name: body.vesselName,
       imo: body.vesselImo,
     });
+  }
+
+  @Post('portcalls/:portcallNumber/archive-client')
+  archiveClient(
+    @Param('portcallNumber') portcallNumber: string,
+  ): Promise<ArchiveClientResult> {
+    return this.screeningService.archiveClient(portcallNumber);
   }
 }
